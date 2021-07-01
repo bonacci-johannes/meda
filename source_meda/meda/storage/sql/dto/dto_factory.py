@@ -3,6 +3,7 @@ import re
 
 from typing import Any, Type, Tuple, Optional, List, Dict, Mapping, Set
 
+from meda.utils.helper import camel_to_snake
 from sqlalchemy import Column, Table, BigInteger, MetaData, ForeignKey, UniqueConstraint
 from sqlalchemy import Date, DateTime, Integer, LargeBinary, String, Float, Boolean, Interval
 from sqlalchemy.dialects.postgresql import JSONB
@@ -51,8 +52,7 @@ class DTOFactory:
     def _unique_common_table_foreign_key_column(field: Feature, unique_common_dto_cls: DTOBase) -> Column:
         """ The data table foreign key column pointing to a unique constraint table holding common values """
         return Column(field.name, BigInteger().with_variant(Integer, 'sqlite'),
-                      ForeignKey(column=unique_common_dto_cls.table().columns['ident'],
-                                 onupdate="cascade", ondelete="cascade"),
+                      ForeignKey(column=unique_common_dto_cls.table().columns['ident']),
                       nullable=is_optional(field.type))
 
     @classmethod
@@ -71,7 +71,7 @@ class DTOFactory:
     @staticmethod
     def get_table_name(feature_dataclass: FeatureDataclassMeta) -> str:
         """ Transform camel to snake case 'FooBar1' -> 'foo_bar_1' """
-        return re.sub(r'(?<!^)(?=[A-Z,0-9])', '_', feature_dataclass.__name__).lower()
+        return camel_to_snake(feature_dataclass.__name__)
 
     @classmethod
     def generate_feature_dataclass_dto_class(cls,
@@ -117,7 +117,7 @@ class DTOFactory:
             unique_dtos: Dict[str, DTOBase] = {}
             optional_dtos: Dict[str, DTOBase] = {}
             set_dtos: Dict[str, DTOBase] = {}
-            foreign_key_columns = []
+            foreign_key_columns: Dict[str, Column] = {}
 
             # Extract all class related fields
             res = cls._extract_fields_and_build_columns(source_class)
@@ -131,12 +131,12 @@ class DTOFactory:
                     unique = not issubclass(source_class, (UniqueCommonFeatureDataclass,
                                                            HeadSeriesFeatureDataclass,
                                                            NestSeriesFeatureDataclass))
-                foreign_key_columns.append(Column("parent", BigInteger().with_variant(Integer, 'sqlite'),
-                                                  ForeignKey(column=parent_table.columns['ident'],
-                                                             onupdate="cascade",
-                                                             ondelete="cascade"),
-                                                  unique=unique,
-                                                  nullable=False))
+                foreign_key_columns["parent"] = (Column("parent", BigInteger().with_variant(Integer, 'sqlite'),
+                                                        ForeignKey(column=parent_table.columns['ident'],
+                                                                   onupdate="cascade",
+                                                                   ondelete="cascade"),
+                                                        unique=unique,
+                                                        nullable=False))
 
             # If applicable:
             #   - Generate the the unique-constraint-dataclass dto class and load from recursive cache
@@ -146,20 +146,21 @@ class DTOFactory:
                 yield from cls._recursive_dto_class_generator(metadata=metadata,
                                                               source_class=sub_feature_dataclass_cls,
                                                               parent_table=None)
-                sub_dto_cls = cls._dto_producer_cache[cls.get_table_name(sub_feature_dataclass_cls)]
-                unique_dtos[field.name] = sub_dto_cls
-                foreign_key_columns.append(
-                    cls._unique_common_table_foreign_key_column(field=field, unique_common_dto_cls=sub_dto_cls))
+                unique_dtos[field.name] = cls._dto_producer_cache[cls.get_table_name(sub_feature_dataclass_cls)]
+                foreign_key_columns[field.name] = cls._unique_common_table_foreign_key_column(
+                    field=field, unique_common_dto_cls=unique_dtos[field.name])
 
-            # Determine unique constraint
+                # Determine unique constraint
             unique_constraint = UniqueConstraint(*columns) \
                 if issubclass(source_class, UniqueCommonFeatureDataclass) else None
 
             # create sql alchemy table object
             database_table = Table(table_name, metadata,
                                    *generic_columns,
-                                   *columns, *foreign_key_columns,
-                                   unique_constraint)
+                                   *columns,
+                                   *foreign_key_columns.values(),
+                                   unique_constraint,
+                                   extend_existing=True)
 
             # Generate all related dtos and load from recursive cache
             # todo: simplify all for loops below to one general and fix annotations
@@ -207,7 +208,8 @@ class DTOFactory:
             for field_name, dto in set_dtos.items():
                 properties[f"{field_name}_dto"] = relationship(dto, uselist=True, lazy="select")
             for field_name, dto in unique_dtos.items():
-                properties[f"{field_name}_dto"] = relationship(dto, uselist=False, lazy="select")
+                properties[f"{field_name}_dto"] = relationship(dto, uselist=False, lazy="select",
+                                                               foreign_keys=foreign_key_columns[field_name])
             mapper(DTO, database_table, properties=properties)
 
             # Add generated DTO class to cache and yield
@@ -240,6 +242,7 @@ class DTOFactory:
         )
 
         for field in source_cls.features:
+            # todo: check if we should handle series unique dataclasses separately
             if field.name == 'ident':
                 base_fields.append(field.name)
             elif field.temporary:
