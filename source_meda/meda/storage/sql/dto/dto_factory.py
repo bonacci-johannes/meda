@@ -1,6 +1,4 @@
 import datetime
-import re
-
 from typing import Any, Type, Tuple, Optional, List, Dict, Mapping, Set
 
 from meda.utils.helper import camel_to_snake
@@ -11,11 +9,10 @@ from sqlalchemy.sql.sqltypes import JSON
 from sqlalchemy.orm import relationship, mapper
 
 from meda.dataclass.feature import Feature
-from meda.dataclass.dataclass import FeatureDataclass, FeatureDataclassMeta, UniqueCommonFeatureDataclass, \
+from meda.dataclass.dataclass import FeatureDataclassMeta, UniqueCommonFeatureDataclass, \
     is_unique_common_feature_dataclass, HeadSeriesFeatureDataclass, is_feature_dataclass, NestSeriesFeatureDataclass, \
-    is_head_series_feature_dataclass, is_nest_series_feature_dataclass, get_head_series_feature_dataclass, \
-    get_nest_series_feature_dataclass
-from meda.dataclass.reflection import is_optional, get_nested_type, get_nested_optionals
+    is_nest_series_feature_dataclass, is_series_dataclass
+from meda.dataclass.reflection import is_optional, get_nested_type, get_nested_optionals, get_type
 from meda.storage.sql.dto.dto_base import DTOBase
 
 
@@ -105,7 +102,6 @@ class DTOFactory:
         Recursive generation of source_class related dto's.
         This function requires a cache and should only be called by cls.produce_assessment_dto_classes
         """
-
         table_name = cls.get_table_name(source_class)
 
         # Construct the database table
@@ -141,7 +137,7 @@ class DTOFactory:
             # If applicable:
             #   - Generate the the unique-constraint-dataclass dto class and load from recursive cache
             #   - Generate a foreign key column to the related common unique table
-            for field in dto_field_dict[UniqueCommonFeatureDataclass]:
+            for field in dto_field_dict['UniqueCommon']:
                 sub_feature_dataclass_cls = get_nested_optionals(field.type)
                 yield from cls._recursive_dto_class_generator(metadata=metadata,
                                                               source_class=sub_feature_dataclass_cls,
@@ -164,20 +160,20 @@ class DTOFactory:
 
             # Generate all related dtos and load from recursive cache
             # todo: simplify all for loops below to one general and fix annotations
-            for field in dto_field_dict[FeatureDataclass]:
+            for field in dto_field_dict['FeatureDataclass']:
                 sub_feature_dataclass_cls = get_nested_optionals(field.type)
                 yield from cls._recursive_dto_class_generator(metadata=metadata,
                                                               source_class=sub_feature_dataclass_cls,
                                                               parent_table=database_table)
                 optional_dtos[field.name] = cls._dto_producer_cache[cls.get_table_name(sub_feature_dataclass_cls)]
-            for field in dto_field_dict[HeadSeriesFeatureDataclass]:
-                sub_feature_dataclass_cls = get_head_series_feature_dataclass(field.type)
+            for field in dto_field_dict['HeadSeries']:
+                sub_feature_dataclass_cls = get_type(field.type)
                 yield from cls._recursive_dto_class_generator(metadata=metadata,
                                                               source_class=sub_feature_dataclass_cls,
                                                               parent_table=database_table)
                 set_dtos[field.name] = cls._dto_producer_cache[cls.get_table_name(sub_feature_dataclass_cls)]
-            for field in dto_field_dict[NestSeriesFeatureDataclass]:
-                sub_feature_dataclass_cls = get_nest_series_feature_dataclass(field.type)
+            for field in dto_field_dict['NestSeries']:
+                sub_feature_dataclass_cls = get_type(field.type)
                 yield from cls._recursive_dto_class_generator(metadata=metadata,
                                                               source_class=sub_feature_dataclass_cls,
                                                               parent_table=database_table)
@@ -227,10 +223,10 @@ class DTOFactory:
         columns: List[Column] = []
         base_fields: List[str] = []
         temporary_fields: List[str] = []
-        dto_field_dict: Dict[FeatureDataclassMeta: Set[Feature]] = {FeatureDataclass: set(),
-                                                                    UniqueCommonFeatureDataclass: set(),
-                                                                    HeadSeriesFeatureDataclass: set(),
-                                                                    NestSeriesFeatureDataclass: set()}
+        dto_field_dict: Dict[FeatureDataclassMeta: Set[Feature]] = {'FeatureDataclass': set(),
+                                                                    'UniqueCommon': set(),
+                                                                    'HeadSeries': set(),
+                                                                    'NestSeries': set()}
 
         generic_columns.append(
             Column(
@@ -251,13 +247,13 @@ class DTOFactory:
                 columns.append(cls._build_base_type_column(field=field))
                 base_fields.append(field.name)
             elif is_unique_common_feature_dataclass(field.type):
-                dto_field_dict[UniqueCommonFeatureDataclass].add(field)
+                dto_field_dict['UniqueCommon'].add(field)
             elif is_feature_dataclass(field.type):
-                dto_field_dict[FeatureDataclass].add(field)
-            elif is_head_series_feature_dataclass(field.type):
-                dto_field_dict[HeadSeriesFeatureDataclass].add(field)
+                dto_field_dict['FeatureDataclass'].add(field)
+            elif is_series_dataclass(field.type) and not is_series_dataclass(source_cls):
+                dto_field_dict['HeadSeries'].add(field)
             elif is_nest_series_feature_dataclass(field.type):
-                dto_field_dict[NestSeriesFeatureDataclass].add(field)
+                dto_field_dict['NestSeries'].add(field)
             else:
                 raise TypeError(f"The storage engine detected an unsupported type in the assessment class: {field}")
 

@@ -37,6 +37,10 @@ def get_nested_optionals(t) -> Type:
     return get_nested_type(t) if is_optional(t) else t
 
 
+def get_type(t) -> Type:
+    return get_nested_type(t) if has_nested_type(t) else t
+
+
 def is_numeric(t) -> bool:
     return t in {int, float}
 

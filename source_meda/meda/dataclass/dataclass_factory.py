@@ -107,7 +107,8 @@ class FeatureDataclassFactory:
         is_series_dataclass = issubclass(feature_dataclass, (HeadSeriesFeatureDataclass,
                                                              NestSeriesFeatureDataclass,
                                                              SeriesUniqueCommonFeatureDataclass))
-        # simplify above statement after introducing series meta class
+        # todo: simplify above statement after introducing series meta class
+        series_ident_field_name = None
 
         for field in feature_dataclass.features:
             value = _Empty
@@ -119,6 +120,12 @@ class FeatureDataclassFactory:
             # determine the type associated value
             if field.temporary:
                 value = None
+            elif field.is_series_ident_field:
+                value = int(series_dataclass_key) if value_type is int else series_dataclass_key
+                if series_ident_field_name is None:
+                    series_ident_field_name = field.name
+                else:
+                    raise ValueError(f"multiple series_ident_field definitions for dataclass {feature_dataclass}")
             elif field.transformer is not None:
                 data_keys = dict(field.input_key)[series_dataclass_key] if is_series_dataclass else field.input_key
                 value_tuple = tuple(data_dict[key] for key in data_keys)
@@ -135,12 +142,14 @@ class FeatureDataclassFactory:
                                         series_dataclass_key=series_dataclass_key)
             elif (type(value_type) is FeatureDataclassMeta) and issubclass(value_type, FeatureDataclass):
                 value = self._generator(feature_dataclass=value_type, data_dict=data_dict)
-            elif is_head_series_feature_dataclass(value_type):
-                value = [self._generator(feature_dataclass=get_head_series_feature_dataclass(value_type),
+            elif (not is_series_dataclass and issubclass(value_type, (HeadSeriesFeatureDataclass,
+                                                                      NestSeriesFeatureDataclass,
+                                                                      SeriesUniqueCommonFeatureDataclass))):
+                value = [self._generator(feature_dataclass=value_type,
                                          data_dict=data_dict, series_dataclass_key=key)
                          for key in get_nested_keys(value_type)]
                 value = tuple([t for t in value if t is not None])
-            elif is_nest_series_feature_dataclass(field.type):
+            elif is_nest_series_feature_dataclass(field.type) and is_series_dataclass:
                 value = self._generator(feature_dataclass=value_type, data_dict=data_dict,
                                         series_dataclass_key=series_dataclass_key)
             else:
@@ -218,11 +227,16 @@ class FeatureDataclassFactory:
         self._none_cascade.update({feature_dataclass: none_cascade})
 
         # return cases
-        kw_values = set([kw_val for kw_val in kwargs.values() if not isinstance(kw_val, SeriesDataclassIdent)])
+        kw_values = []
+        for key, val in kwargs.items():
+            if not (isinstance(val, SeriesDataclassIdent)
+                    or (key == series_ident_field_name)):
+                kw_values.append(val)
+
         if none_cascade:
             # data is dropped due to transformation errors
             return None
-        elif kw_values == {None}:
+        elif set(kw_values) == {None}:
             # result set is empty
             return None
         else:

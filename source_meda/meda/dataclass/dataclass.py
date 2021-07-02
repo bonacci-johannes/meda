@@ -5,7 +5,7 @@ import inspect
 
 from meda.dataclass.feature import Feature
 from meda.dataclass.reflection import get_nested_type, is_mapping_str_to_any, is_tuple, has_nested_type, \
-    is_optional
+    is_optional, get_type
 
 
 # todo: implement an annotation checker for dataclasses on init instance. Otherwise we can get some strange behavior.
@@ -72,8 +72,16 @@ class FeatureDataclassMeta(type):
             value_type = get_nested_type(field.type) if has_nested_type(field.type) else field.type
 
             # skip temporary, json, feature_dataclass fields and raise if tuple
-            if field.temporary or is_mapping_str_to_any(value_type) or isinstance(value_type, FeatureDataclassMeta):
+            if (field.temporary
+                    or is_mapping_str_to_any(value_type)
+                    or isinstance(value_type, FeatureDataclassMeta)):
                 continue
+            elif field.is_series_ident_field:
+                field_type = get_type(field.type)
+                if (field_type is str) or (field_type is int):
+                    continue
+                else:
+                    raise TypeError(f"The type of the series ident field {field} is neither a str nor int.")
             elif is_tuple(field.type):
                 raise TypeError(f"The field {field} is a tuple field. Tuple fields are not supported")
 
@@ -159,11 +167,12 @@ class NestSeriesFeatureDataclassMeta(FeatureDataclassMeta):
 
 class HeadSeriesFeatureDataclassMeta(NestSeriesFeatureDataclassMeta):
     def __init__(cls, *args, **kwargs):
+        """dynamically creation of an ident feature class"""
+        series_ident_field = 'series_ident'
         if '__annotations__' in args[2]:
-            "dynamically creation of an ident feature class"
             series_ident_cls = dynamic_series_ident_cls(cls_name=cls.__name__ + 'Ident')
-            args[2]['__annotations__'].update({'series_ident': Optional[series_ident_cls]})
-            setattr(cls, 'series_ident', series_ident_cls())
+            args[2]['__annotations__'].update({series_ident_field: Optional[series_ident_cls]})
+            setattr(cls, series_ident_field, None)
         super().__init__(*args, **kwargs)
 
 
@@ -210,6 +219,10 @@ def get_nested_keys(cls: NestSeriesFeatureDataclassMeta) -> Set[str]:
 
 def is_feature_dataclass_meta(t: Type) -> bool:
     return isinstance(get_nested_type(t) if has_nested_type(t) else t, FeatureDataclassMeta)
+
+
+def is_series_dataclass(t: Type) -> bool:
+    return isinstance(get_nested_type(t) if has_nested_type(t) else t, NestSeriesFeatureDataclassMeta)
 
 
 def is_nested_dataclass(t: Type, data_class: FeatureDataclassMeta) -> bool:
