@@ -7,6 +7,7 @@ from meda.dataclass.dataclass import FeatureDataclass, FeatureDataclassMeta, Uni
     is_nest_series_feature_dataclass, NestSeriesFeatureDataclass, is_series_dataclass_ident, SeriesDataclassIdent, \
     SeriesUniqueCommonFeatureDataclass, get_nested_keys, is_feature_dataclass_meta, get_nested_dataclass
 from meda.dataclass.defaults import BooleanCases
+from meda.dataclass.feature import Feature
 from meda.dataclass.reflection import is_optional, get_nested_type, has_nested_type
 from meda.utils.regex_date_time import RegexDateTime
 
@@ -41,7 +42,6 @@ class FeatureDataclassFactory:
     def __init__(self, boolean_cases: BooleanCases):
         self._boolean_cases = boolean_cases
         self._generator_errors = {}
-        self._none_cascade = {}
 
     def generator(self,
                   feature_dataclass: FeatureDataclassMeta,
@@ -60,15 +60,40 @@ class FeatureDataclassFactory:
                              + f"feature_dataclass={feature_dataclass} and series_dataclass_key={series_dataclass_key}")
 
         self._generator_errors = {}
-        self._none_cascade = {}
 
         initialized_dataclass = self._generator(feature_dataclass=feature_dataclass,
                                                 data_dict=data_dict,
                                                 series_dataclass_key=series_dataclass_key)
 
-        errors_str = f"{self._generator_errors}" if len(self._generator_errors) > 0 else None
+        errors = self._get_generator_error(feature_dataclass=feature_dataclass,
+                                           series_dataclass_key=series_dataclass_key)
+        errors_str = None if errors is None else str(errors)
 
         return initialized_dataclass, errors_str
+
+    @staticmethod
+    def _has_error_field(feature_dataclass: FeatureDataclassMeta) -> bool:
+        for field in feature_dataclass.features:
+            if field.is_error_field:
+                return True
+        return False
+
+    @staticmethod
+    def _error_key(feature_dataclass: FeatureDataclassMeta,
+                   series_dataclass_key: Optional[str] = None) -> str:
+        return feature_dataclass.__name__ + ("" if series_dataclass_key is None else f"_{series_dataclass_key}")
+
+    def _set_generator_error(self,
+                             msg: str,
+                             feature_dataclass: FeatureDataclassMeta,
+                             series_dataclass_key: Optional[str] = None):
+        self._generator_errors.update({self._error_key(feature_dataclass, series_dataclass_key): msg})
+
+    def _get_generator_error(self,
+                             feature_dataclass: FeatureDataclassMeta,
+                             series_dataclass_key: Optional[str] = None) \
+            -> Optional[str]:
+        return self._generator_errors.get(self._error_key(feature_dataclass, series_dataclass_key))
 
     def _generator(self,
                    feature_dataclass: FeatureDataclassMeta,
@@ -109,10 +134,15 @@ class FeatureDataclassFactory:
                                                              SeriesUniqueCommonFeatureDataclass))
         # todo: simplify above statement after introducing series meta class
         series_ident_field_name = None
+        error_field: Optional[Feature] = None
 
         for field in feature_dataclass.features:
+            if field.is_error_field:
+                error_field = field
+                continue
             value = _Empty
             error_msg: Optional[str] = None
+            skip_error_fallback: bool = False
 
             # determine value string and the value type
             value_type: Any = get_nested_type(field.type) if has_nested_type(field.type) else field.type
@@ -132,26 +162,36 @@ class FeatureDataclassFactory:
                 try:
                     value = field.transformer(*value_tuple)
                 except:
-                    error_msg = f"Transformer failed for input={value_tuple}"
-            elif is_series_dataclass_ident(value_type):
+                    error_msg = f"Transformer failed for {field.name} with input={value_tuple}"
+            elif (
+                    is_series_dataclass_ident(value_type)
+                    or ((type(value_type) is FeatureDataclassMeta)
+                        and issubclass(value_type, UniqueCommonFeatureDataclass))
+                    or ((type(value_type) is FeatureDataclassMeta) and issubclass(value_type, FeatureDataclass))
+                    or (is_nest_series_feature_dataclass(field.type) and is_series_dataclass)
+            ):
+                skip_error_fallback = True
                 value = self._generator(feature_dataclass=value_type,
                                         data_dict=data_dict,
                                         series_dataclass_key=series_dataclass_key)
-            elif (type(value_type) is FeatureDataclassMeta) and issubclass(value_type, UniqueCommonFeatureDataclass):
-                value = self._generator(feature_dataclass=value_type, data_dict=data_dict,
-                                        series_dataclass_key=series_dataclass_key)
-            elif (type(value_type) is FeatureDataclassMeta) and issubclass(value_type, FeatureDataclass):
-                value = self._generator(feature_dataclass=value_type, data_dict=data_dict)
+
+                error_msg = self._get_generator_error(feature_dataclass=value_type,
+                                                      series_dataclass_key=series_dataclass_key)
             elif (not is_series_dataclass and issubclass(value_type, (HeadSeriesFeatureDataclass,
                                                                       NestSeriesFeatureDataclass,
                                                                       SeriesUniqueCommonFeatureDataclass))):
+                skip_error_fallback = True
                 value = [self._generator(feature_dataclass=value_type,
                                          data_dict=data_dict, series_dataclass_key=key)
                          for key in get_nested_keys(value_type)]
                 value = tuple([t for t in value if t is not None])
-            elif is_nest_series_feature_dataclass(field.type) and is_series_dataclass:
-                value = self._generator(feature_dataclass=value_type, data_dict=data_dict,
-                                        series_dataclass_key=series_dataclass_key)
+
+                error_msgs = [msg for msg in [self._get_generator_error(feature_dataclass=value_type,
+                                                                        series_dataclass_key=key)
+                                              for key in get_nested_keys(value_type)]
+                              if msg is not None]
+                if len(error_msgs) > 0:
+                    error_msg = '{' + ', '.join([str(msg) for msg in error_msgs]) + '}'
             else:
                 # determine value string
                 if is_series_dataclass and (series_dataclass_key not in dict(field.input_key).keys()):
@@ -205,14 +245,15 @@ class FeatureDataclassFactory:
             # managing the behavior in case of error with fall back for value
             if error_msg is not None:
                 error_dict.update({field.name + (f"_{series_dataclass_key}" if is_series_dataclass else ""): error_msg})
-                if is_optional(field.type):
-                    value = None
-                else:
-                    if isinstance(value_type, FeatureDataclassMeta):
-                        value = self._dataclass_fall_back(value_type)
+                if not skip_error_fallback:
+                    if is_optional(field.type):
+                        value = None
                     else:
-                        value = self.value_fall_back[value_type]
-                    none_cascade = True
+                        if isinstance(value_type, FeatureDataclassMeta):
+                            value = self._dataclass_fall_back(value_type)
+                        else:
+                            value = self.value_fall_back[value_type]
+                        none_cascade = True
 
             # check if value is assigned otherwise raise
             if value is _Empty:
@@ -222,23 +263,28 @@ class FeatureDataclassFactory:
             kwargs.update({field.name: value})
 
         # update the global error handling fields
-        len(error_dict) > 0 and self._generator_errors.update(
-            {feature_dataclass.__name__ + (f"_{series_dataclass_key}" if is_series_dataclass else ""): error_dict})
-        self._none_cascade.update({feature_dataclass: none_cascade})
+        if error_field is not None:
+            kwargs.update({error_field.name: str(error_dict) if len(error_dict) > 0 else None})
+        if len(error_dict) > 0:
+            self._set_generator_error(msg=str(error_dict),
+                                      feature_dataclass=feature_dataclass,
+                                      series_dataclass_key=series_dataclass_key)
 
-        # return cases
+        ################
+        # return cases #
+        ################
+        if none_cascade:
+            # data is dropped due to transformation errors
+            return None
+
+        # return None for empty result set
         kw_values = []
         for key, val in kwargs.items():
             if not (isinstance(val, SeriesDataclassIdent)
                     or (key == series_ident_field_name)):
                 kw_values.append(val)
+        if set(kw_values) == {None}:
+            return None
 
-        if none_cascade:
-            # data is dropped due to transformation errors
-            return None
-        elif set(kw_values) == {None}:
-            # result set is empty
-            return None
-        else:
-            # initialized dataclass
-            return feature_dataclass(**kwargs)
+        # return initialized dataclass
+        return feature_dataclass(**kwargs)

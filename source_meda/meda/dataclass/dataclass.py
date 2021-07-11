@@ -76,6 +76,12 @@ class FeatureDataclassMeta(type):
                     or is_mapping_str_to_any(value_type)
                     or isinstance(value_type, FeatureDataclassMeta)):
                 continue
+            elif field.is_error_field:
+                field_type = get_type(field.type)
+                if field_type is str and is_optional(field.type):
+                    continue
+                else:
+                    raise TypeError(f"The type of the series ident field {field} is not a str or not optional.")
             elif field.is_series_ident_field:
                 field_type = get_type(field.type)
                 if (field_type is str) or (field_type is int):

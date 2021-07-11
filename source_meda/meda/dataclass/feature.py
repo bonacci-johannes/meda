@@ -67,6 +67,7 @@ class Feature(dataclasses.Field):
                  comment: str = '',
                  transformer: Optional[Callable[[Any], Any]] = None,
                  is_series_ident_field: bool = False,
+                 is_error_field: bool = False,
                  temporary: bool = False,
                  input_key: Optional[
                      Union[str, Tuple[str, ...], Tuple[Tuple[str, Union[str, Tuple[str, ...]]], ...]]] = None,
@@ -115,6 +116,7 @@ class Feature(dataclasses.Field):
         self.comment = comment
         self.transformer = transformer
         self.is_series_ident_field = is_series_ident_field
+        self.is_error_field = is_error_field
         self.temporary = temporary
         self.input_key = input_key
         self.null_defaults = null_defaults
@@ -126,6 +128,7 @@ class Feature(dataclasses.Field):
                self.comment == other.comment and \
                self.transformer == other.transformer and \
                self.is_series_ident_field == other.is_series_ident_field and \
+               self.is_error_field == other.is_error_field and \
                self.temporary == other.temporary and \
                self.input_key == other.input_key and \
                self.null_defaults == other.null_defaults and \
@@ -141,6 +144,7 @@ class Feature(dataclasses.Field):
         return hash((self.name, self.type,
                      self.unique_index, self.comment,
                      self.transformer, self.is_series_ident_field,
+                     self.is_error_field,
                      self.temporary, self.input_key,
                      self.null_defaults,
                      self.default, self.default_factory,
@@ -152,6 +156,7 @@ class Feature(dataclasses.Field):
                 f'comment={self.comment!r},'
                 f'transformer={(None if self.transformer is None else self.transformer.__name__)!r},'
                 f'is_ident_field={self.is_series_ident_field!r},'
+                f'is_error_field={self.is_error_field!r}',
                 f'temporary={self.temporary!r},'
                 f'input_key={self.input_key!r},'
                 f'null_defaults={self.null_defaults!r},'
