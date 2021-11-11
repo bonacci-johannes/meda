@@ -38,6 +38,17 @@ class TestRegexDateTime(unittest.TestCase):
         with self.subTest('test short forms'):
             self.assertEqual('2012-03-03', RegexDateTime.extract_date('2012.3.3').__str__())
 
+        with self.subTest('test corrections'):
+            self.assertEqual('2012-01-01', RegexDateTime.extract_date('2012.00.00').__str__())
+            self.assertEqual('2012-01-01', RegexDateTime.extract_date('2012.00.0').__str__())
+            self.assertEqual('2012-01-01', RegexDateTime.extract_date('2012.0.00').__str__())
+            self.assertEqual('2012-01-01', RegexDateTime.extract_date('2012.0.0').__str__())
+
+            self.assertEqual('2012-02-01', RegexDateTime.extract_date('2012.02.00').__str__())
+            self.assertEqual('2012-02-01', RegexDateTime.extract_date('2012.02.0').__str__())
+            self.assertEqual('2012-02-01', RegexDateTime.extract_date('2012.2.00').__str__())
+            self.assertEqual('2012-02-01', RegexDateTime.extract_date('2012.2.0').__str__())
+
         with self.subTest('test invalid formats'):
             self.assertRaises(ValueError, RegexDateTime.extract_date, '12-12-12')
             self.assertRaises(ValueError, RegexDateTime.extract_date, '12.12.12')

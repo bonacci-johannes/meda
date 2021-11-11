@@ -8,8 +8,8 @@ class RegexDateTime:
     # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     # ranges
     _re_year = "([1][9]|[2][0])[0-9][0-9]"
-    _re_month = "([1-9]|[0][1-9]|1[0-2])"
-    _re_day = "([1-9]|[0-2][0-9]|[3][0-1])"
+    _re_month = "([0-9]|[0][0-9]|1[0-2])"
+    _re_day = "([0-9]|[0-2][0-9]|[3][0-1])"
     _re_hour = "([0-9]|0[0-9]|1[0-9]|2[0-3])"
     _re_min_sec = "[0-5][0-9]"
 
@@ -42,6 +42,9 @@ class RegexDateTime:
             year, month, day = [int(a) for a in re.split(cls._re_delimiter_date, date_str)]
         else:
             raise ValueError(f"Unknown date format: {string}")
+
+        day = 1 if day == 0 else day
+        month = 1 if month == 0 else month
 
         return date(year=year, month=month, day=day)
 
