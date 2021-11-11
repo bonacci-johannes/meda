@@ -137,6 +137,7 @@ class FeatureDataclassFactory:
         error_field: Optional[Feature] = None
 
         for field in feature_dataclass.features:
+            # todo: implement test cases for all conversions
             if field.is_error_field:
                 error_field = field
                 continue
@@ -226,19 +227,20 @@ class FeatureDataclassFactory:
                         value = RegexDateTime.extract_datetime(value_str)
                     except:
                         error_msg = f"Invalid datetime: {value_str}"
-                elif value_type is int:
+                elif value_type is int or value_type is float:
+                    # todo: implement a test case handling '<' or '>'
+                    if value_str.count('>') == 1:
+                        value_str = value_str.replace('>', '')
+                    elif value_str.count('<') == 1:
+                        value_str = value_str.replace('<', '')
+
+                    if value_type is float:
+                        if value_str.count(',') == 1 and value_str.count('.') == 0:
+                            value_str = value_str.replace(',', '.')
                     try:
                         value = value_type(value_str)
                     except:
-                        error_msg = f"Invalid int: {value_str}"
-                elif value_type is float:
-                    try:
-                        # here we correct the comma to a dot, e.g. 4,7902 -> 4.7902
-                        value = value_type(value_str.replace(',', '.')) if \
-                            value_str.count(',') == 1 and value_str.count('.') == 0 \
-                            else value_type(value_str)
-                    except:
-                        error_msg = f"Invalid float: {value_str}"
+                        error_msg = f"Invalid numeric: {value_str}"
                 else:
                     raise ValueError(f"handle file type: {value_type}")
 
