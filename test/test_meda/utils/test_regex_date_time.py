@@ -35,8 +35,22 @@ class TestRegexDateTime(unittest.TestCase):
         with self.subTest('test year only'):
             self.assertEqual('2012-01-01', RegexDateTime.extract_date('2012').__str__())
 
+        with self.subTest('test invalid date short'):
+            self.assertRaises(ValueError, RegexDateTime.extract_date, '00_00_00')
+            self.assertRaises(ValueError, RegexDateTime.extract_date, '00_0_00')
+            self.assertRaises(ValueError, RegexDateTime.extract_date, '0_00_00')
+            self.assertRaises(ValueError, RegexDateTime.extract_date, '0_0_00')
+            self.assertEqual('2000-01-01', RegexDateTime.extract_date('xx.UN.00').__str__())
+
         with self.subTest('test short forms'):
             self.assertEqual('2012-03-03', RegexDateTime.extract_date('2012.3.3').__str__())
+
+        with self.subTest('test century short forms'):
+            self.assertEqual('2012-03-03', RegexDateTime.extract_date('3.3.12').__str__())
+            self.assertEqual('2012-03-01', RegexDateTime.extract_date('xx.3.12').__str__())
+            self.assertEqual('2012-03-01', RegexDateTime.extract_date('xx-3-12').__str__())
+            self.assertEqual('1952-03-01', RegexDateTime.extract_date('xx-3-52').__str__())
+            self.assertEqual('1952-01-01', RegexDateTime.extract_date('xx.UN.52').__str__())
 
         with self.subTest('test corrections'):
             self.assertEqual('2012-01-01', RegexDateTime.extract_date('2012.00.00').__str__())
@@ -50,9 +64,8 @@ class TestRegexDateTime(unittest.TestCase):
             self.assertEqual('2012-02-01', RegexDateTime.extract_date('2012.2.0').__str__())
 
         with self.subTest('test invalid formats'):
-            self.assertRaises(ValueError, RegexDateTime.extract_date, '12-12-12')
-            self.assertRaises(ValueError, RegexDateTime.extract_date, '12.12.12')
             self.assertRaises(ValueError, RegexDateTime.extract_date, '12_12_2012')
+            self.assertRaises(ValueError, RegexDateTime.extract_date, '12:12:2012')
 
     def test_extract_datetime(self):
         with self.subTest('test delimiter'):
