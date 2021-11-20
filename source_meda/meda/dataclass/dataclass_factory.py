@@ -163,7 +163,7 @@ class FeatureDataclassFactory:
                 try:
                     value = field.transformer(*value_tuple)
                 except:
-                    error_msg = f"Transformer failed for {field.name} with input={value_tuple}"
+                    error_msg = f"Transformer failed for {field.name} with keys={data_keys} and input={value_tuple}"
             elif (
                     is_series_dataclass_ident(value_type)
                     or ((type(value_type) is FeatureDataclassMeta)
@@ -216,17 +216,17 @@ class FeatureDataclassFactory:
                     elif value_str in self._boolean_cases.false:
                         value = False
                     else:
-                        error_msg = f"Unknown boolean value: {value_str}"
+                        error_msg = f"Unknown boolean: {{{data_key}:{value_str}}}"
                 elif value_type is date:
                     try:
                         value = RegexDateTime.extract_date(value_str)
                     except:
-                        error_msg = f"Invalid date: {value_str}"
+                        error_msg = f"Invalid date: {{{data_key}:{value_str}}}"
                 elif value_type is datetime:
                     try:
                         value = RegexDateTime.extract_datetime(value_str)
                     except:
-                        error_msg = f"Invalid datetime: {value_str}"
+                        error_msg = f"Invalid datetime: {{{data_key}:{value_str}}}"
                 elif value_type is int or value_type is float:
                     # todo: implement a test case handling '<' or '>'
                     if value_str.count('>') == 1:
@@ -240,7 +240,7 @@ class FeatureDataclassFactory:
                     try:
                         value = value_type(value_str)
                     except:
-                        error_msg = f"Invalid numeric: {value_str}"
+                        error_msg = f"Invalid numeric: {{{data_key}:{value_str}}}"
                 else:
                     raise ValueError(f"handle file type: {value_type}")
 
