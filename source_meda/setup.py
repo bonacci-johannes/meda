@@ -19,6 +19,7 @@ setup(
     description='A tool to transform flat csv data into a structured database',
     python_requires='>=3.8.*',
     packages=find_packages(include=('meda*',)),
+    package_data={'meda': ['utils/unit_conversion/*.yaml']},
     setup_requires=['setuptools_scm'],
     version='0.0.0',
     install_requires=requirements

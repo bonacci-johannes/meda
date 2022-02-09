@@ -1,0 +1,93 @@
+###############################
+'one':
+  ref_unit: '1'
+  conversion:
+    '%': 0.01
+###############################
+'density':
+  ref_unit: 'g/L'
+  conversion:
+    'mg/L': 1000
+    'mg/dL': 100
+###############################
+'particle_density':
+  ref_unit: 'x 1E9/l'
+  conversion:
+    '/µl': 1000
+    '/µL': 1000
+    'x 1E12/l': 0.001
+    'x 1E6/µl': 0.001
+###############################
+'molar_density':
+  ref_unit: 'mol/L'
+  conversion:
+    'mol/l': 1
+    'mmol/L': 1.e+3
+    'µmol/L': 1.e+6
+    'pmol/L': 1.e+12
+    'pmol/l': 1.e+12
+###############################
+# todo: check this unit!?!
+'u_mol_density':
+  ref_unit: 'U/L'
+  conversion:
+    'µmol/L': 0.01
+###############################
+# todo: what is this dimension/unit?
+'u_density':
+  ref_unit: 'U/L'
+  conversion:
+    'mU/L': 1.e+3
+###############################
+'density_urea':
+  ref_unit: 'mg/dL'
+  conversion:
+    'mmol/L': 0.357
+###############################
+'density_uric_acid':
+  ref_unit: 'mg/dL'
+  conversion:
+    'µmol/L': 59.5
+###############################
+'density_bilirubin':
+  ref_unit: 'mg/dL'
+  conversion:
+    'µmol/L': 17.1
+###############################
+'density_hemoglobin':
+  ref_unit: 'g/dL'
+  conversion:
+    'mmol/L': 0.621
+###############################
+'density_kreatinin':
+  ref_unit: 'mg/dL'
+  conversion:
+    'µmol/L': 88.4173
+    '2': 1  # todo: check this unit!?!
+###############################
+'osmotic_concentration':
+  ref_unit: 'osmol/kg'
+  conversion:
+    'mosmol/kg': 1000
+###############################
+# todo: what is this dimension/unit?
+'density_strange_kreatinin':
+  ref_unit: 'g/L'
+  conversion:
+    'mg/L': 1000
+    'mg/dL': 100
+    'mg/g Kreatinin': 1
+###############################
+# todo: what is this dimension/unit?
+# todo: add own column for blickfeld units
+'blickfeld':
+  ref_unit: '/µl'
+  conversion:
+    '/µL': 1
+    '/Blickfeld': 1
+###############################
+'volume':
+  ref_unit: 'l'
+  conversion:
+    'ml': 1.0e+3
+    'fl': 1.0e+15
