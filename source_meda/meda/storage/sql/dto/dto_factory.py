@@ -104,8 +104,8 @@ class DTOFactory:
         """
         table_name = cls.get_table_name(source_class)
 
-        # Construct the database table
-        if table_name in metadata.tables.keys():
+        # Construct the database table+
+        if table_name in cls._dto_producer_cache.keys():
             yield cls._dto_producer_cache[table_name]
         else:
             # Dictionaries for related dto_classes
@@ -146,7 +146,7 @@ class DTOFactory:
                 foreign_key_columns[field.name] = cls._unique_common_table_foreign_key_column(
                     field=field, unique_common_dto_cls=unique_dtos[field.name])
 
-                # Determine unique constraint
+            # Determine unique constraint
             unique_constraint = UniqueConstraint(*columns) \
                 if issubclass(source_class, UniqueCommonFeatureDataclass) else None
 

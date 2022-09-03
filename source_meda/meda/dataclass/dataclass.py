@@ -82,6 +82,12 @@ class FeatureDataclassMeta(type):
                     continue
                 else:
                     raise TypeError(f"The type of the series ident field {field} is not a str or not optional.")
+            elif field.is_ident_field:
+                field_type = get_type(field.type)
+                if (field_type is str) or (field_type is int):
+                    continue
+                else:
+                    raise TypeError(f"The type of the ident field {field} is neither a str nor int.")
             elif field.is_series_ident_field:
                 field_type = get_type(field.type)
                 if (field_type is str) or (field_type is int):
@@ -218,7 +224,10 @@ def get_nested_keys(cls: NestSeriesFeatureDataclassMeta) -> Set[str]:
         elif isinstance(field_type, NestSeriesFeatureDataclass):
             keys = keys | get_nested_keys(field_type)
         elif field.input_key is not None:
-            keys = keys | set(dict(field.input_key).keys())
+            try:
+                keys = keys | set(dict(field.input_key).keys())
+            except:
+                debug = 'debug'
 
     return keys
 

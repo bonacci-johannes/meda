@@ -4,7 +4,7 @@ from typing import Optional, FrozenSet, Any, Mapping
 import numpy
 from sqlalchemy import Table, BigInteger, Column, Integer, String, MetaData
 from meda.dataclass.dataclass import FeatureDataclass, UniqueCommonFeatureDataclass, \
-    HeadSeriesFeatureDataclass
+    HeadSeriesFeatureDataclass, ExternMixin
 from meda.dataclass.dataclass_factory import FeatureDataclassFactory
 from meda.dataclass.defaults import BooleanCases
 from meda.dataclass.feature import Feature
@@ -111,18 +111,35 @@ class PicklableAssessment(FeatureDataclass):
 class TestDTORegistry(TestDTORegistryMixIn):
 
     def test_schema_support(self):
-        class GoodAssessment(FeatureDataclass):
-            anything: Any = Feature(temporary=True, input_key='')
+        class SubAssessment(FeatureDataclass):
+            sub_value: float = Feature(comment='m^2', input_key='')
+
+        class Unique(FeatureDataclass, ExternMixin):
+            ident: int
+            status: str
+
+        class MainAssessment(FeatureDataclass):
+            main_value: float = Feature(comment='m^2', input_key='')
+            sub_ass: SubAssessment
+            uni: Optional[Unique]
 
         parent_table = Table("parent_test", MetaData(schema="p_schema"),
                              Column("ident", BigInteger().with_variant(Integer, 'sqlite'),
                                     primary_key=True, autoincrement=True),
                              Column("name", String(20), nullable=False))
 
-        self.registry.register(feature_dataclass_cls=GoodAssessment,
+        self.registry.register(feature_dataclass_cls=MainAssessment,
                                metadata=MetaData(schema="a_schema"),
                                parent_table=(parent_table, True))
-        self.assertEqual({'a_schema.good_assessment', 'p_schema.parent_test'}, self.registry.all_tables.keys())
+        dto_by_class = self.registry[MainAssessment]
+
+        self.assertEqual({'a_schema.main_assessment', 'a_schema.sub_assessment', 'a_schema.unique',
+                          'p_schema.parent_test'},
+                         self.registry.all_tables.keys())
+
+        d_cls = MainAssessment(main_value=2.4, sub_ass=SubAssessment(sub_value=2.3),
+                               uni=Unique(ident=1, status='234'))
+        dto = dto_by_class.from_domain(domain=d_cls)
 
     def test_ignore_temporary(self):
         class GoodAssessment(FeatureDataclass):

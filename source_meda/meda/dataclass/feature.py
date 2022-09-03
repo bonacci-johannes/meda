@@ -66,6 +66,7 @@ class Feature(dataclasses.Field):
                  unique_index: bool = False,
                  comment: str = '',
                  transformer: Optional[Callable[[Any], Any]] = None,
+                 is_ident_field: bool = False,
                  is_series_ident_field: bool = False,
                  is_error_field: bool = False,
                  temporary: bool = False,
@@ -115,6 +116,7 @@ class Feature(dataclasses.Field):
         self.unique_index = unique_index
         self.comment = comment
         self.transformer = transformer
+        self.is_ident_field = is_ident_field
         self.is_series_ident_field = is_series_ident_field
         self.is_error_field = is_error_field
         self.temporary = temporary
@@ -127,6 +129,7 @@ class Feature(dataclasses.Field):
                self.unique_index == other.unique_index and \
                self.comment == other.comment and \
                self.transformer == other.transformer and \
+               self.is_ident_field == other.is_ident_field and \
                self.is_series_ident_field == other.is_series_ident_field and \
                self.is_error_field == other.is_error_field and \
                self.temporary == other.temporary and \
@@ -143,7 +146,8 @@ class Feature(dataclasses.Field):
     def __hash__(self):
         return hash((self.name, self.type,
                      self.unique_index, self.comment,
-                     self.transformer, self.is_series_ident_field,
+                     self.transformer,
+                     self.is_ident_field, self.is_series_ident_field,
                      self.is_error_field,
                      self.temporary, self.input_key,
                      self.null_defaults,
@@ -155,7 +159,8 @@ class Feature(dataclasses.Field):
                 f'index={self.unique_index!r},'
                 f'comment={self.comment!r},'
                 f'transformer={(None if self.transformer is None else self.transformer.__name__)!r},'
-                f'is_ident_field={self.is_series_ident_field!r},'
+                f'is_ident_field={self.is_ident_field!r},'
+                f'is_series_ident_field={self.is_series_ident_field!r},'
                 f'is_error_field={self.is_error_field!r}',
                 f'temporary={self.temporary!r},'
                 f'input_key={self.input_key!r},'

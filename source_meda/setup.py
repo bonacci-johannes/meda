@@ -8,9 +8,9 @@ Use "python setup.py bdist_wheel" to create the meda package.
 #  BUILD THE ADPKD LIBRARY PACKAGE #
 
 requirements = [
-    "sqlalchemy==1.4.13",
+    "sqlalchemy==1.4.40",
     "testing.postgresql==1.3.0",
-    "numpy==1.20.2",
+    "numpy==1.23.2",
     "psycopg2-binary==2.9.1",
 ]
 

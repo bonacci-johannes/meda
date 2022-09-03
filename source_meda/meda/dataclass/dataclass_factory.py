@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Union, Dict, Optional, Any, Tuple
 
 from meda.dataclass.dataclass import FeatureDataclass, FeatureDataclassMeta, UniqueCommonFeatureDataclass, \
-    HeadSeriesFeatureDataclass, is_head_series_feature_dataclass, get_head_series_feature_dataclass, \
+    HeadSeriesFeatureDataclass, \
     is_nest_series_feature_dataclass, NestSeriesFeatureDataclass, is_series_dataclass_ident, SeriesDataclassIdent, \
     SeriesUniqueCommonFeatureDataclass, get_nested_keys, is_feature_dataclass_meta, get_nested_dataclass
 from meda.dataclass.defaults import BooleanCases
@@ -133,6 +133,7 @@ class FeatureDataclassFactory:
                                                              NestSeriesFeatureDataclass,
                                                              SeriesUniqueCommonFeatureDataclass))
         # todo: simplify above statement after introducing series meta class
+        ident_field_name = None
         series_ident_field_name = None
         error_field: Optional[Feature] = None
 
@@ -151,6 +152,13 @@ class FeatureDataclassFactory:
             # determine the type associated value
             if field.temporary:
                 value = None
+            elif field.is_ident_field:
+                value_str = data_dict[field.input_key]
+                value = int(value_str) if value_type is int else value_str
+                if ident_field_name is None:
+                    ident_field_name = field.name
+                else:
+                    raise ValueError(f"multiple ident_field definitions for dataclass {feature_dataclass}")
             elif field.is_series_ident_field:
                 value = int(series_dataclass_key) if value_type is int else series_dataclass_key
                 if series_ident_field_name is None:
@@ -283,6 +291,7 @@ class FeatureDataclassFactory:
         kw_values = []
         for key, val in kwargs.items():
             if not (isinstance(val, SeriesDataclassIdent)
+                    or (key == ident_field_name)
                     or (key == series_ident_field_name)):
                 kw_values.append(val)
         if set(kw_values) == {None}:
