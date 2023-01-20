@@ -26,6 +26,7 @@ class RegexDateTime:
     _re_delimiter_datetime = "[tT_ ]"
 
     # joined patterns
+    _re_date_month_year = _re_delimiter_date.join([_re_month, _re_year])
     _re_invalid_date_short = _re_delimiter_date.join(['(0|00)', '(0|00)', '00'])
     _re_date_short_asc = _re_delimiter_date.join([_re_day, _re_month, _re_year_short])
     _re_date_desc = _re_delimiter_date.join([_re_year, _re_month, _re_day])
@@ -39,6 +40,9 @@ class RegexDateTime:
     def extract_date(cls, string: str) -> date:
         if re.fullmatch(cls._re_invalid_date_short, string):
             raise ValueError(f"Invalid date: {string}")
+        elif re.fullmatch(cls._re_date_month_year, string):
+            day = '1'
+            month, year = re.split(cls._re_delimiter_date, string)
         elif re.fullmatch(cls._re_year, string):
             year = string
             day = month = '1'
