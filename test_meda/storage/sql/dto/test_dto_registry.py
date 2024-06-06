@@ -9,7 +9,7 @@ from meda.dataclass.dataclass_factory import FeatureDataclassFactory
 from meda.dataclass.defaults import BooleanCases
 from meda.dataclass.feature import Feature
 from meda.storage.sql.dto.dto_registry import DTORegistry
-from test.test_meda.storage.sql.dto import TestDTORegistryMixIn
+from test_meda.storage.sql.dto import TestDTORegistryMixIn
 
 
 # todo: improve this test with a better test coverage!!!
